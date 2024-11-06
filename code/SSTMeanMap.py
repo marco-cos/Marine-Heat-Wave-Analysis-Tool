@@ -1,4 +1,6 @@
 def SSTMeanMap(filelocation):
+    import time as t
+    starttime = t.time()
     import netCDF4 as nc 
     import matplotlib.pyplot as plt
     import numpy
@@ -34,4 +36,6 @@ def SSTMeanMap(filelocation):
     gridlines = axes.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), linestyle='--', color='gray')
     gridlines.top_labels = False  
     gridlines.right_labels = False 
+
+    print("Execution time:", round(t.time() - starttime, 2), "seconds")
     plt.show()

@@ -64,10 +64,6 @@ def MHWDuration(filelocation):
     # Wait for all threads to complete
     for thread in threads:
         thread.join()
-    print("Execution time:", t.time() - starttime)
-
-
-
 
     # Create a meshgrid for plotting
     lon_grid, lat_grid = np.meshgrid(lon, lat)
@@ -95,4 +91,5 @@ def MHWDuration(filelocation):
     gridlines.xlabel_style = {'size': 10, 'color': 'black'}
     gridlines.ylabel_style = {'size': 10, 'color': 'black'}
 
+    print("Execution time:", round(t.time() - starttime, 2), "seconds")
     plt.show()

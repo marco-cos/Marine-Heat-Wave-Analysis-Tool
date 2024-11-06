@@ -1,5 +1,8 @@
 
 def SSTAvgGraph(filelocation):
+    import time as t
+    starttime = t.time()
+
     import netCDF4 as nc 
     import matplotlib.pyplot as plt
     import numpy
@@ -20,10 +23,12 @@ def SSTAvgGraph(filelocation):
 
     #Print plot
     plt.figure(figsize=(10, 5))
-    plt.plot(time, avgsst, label='Average SST')
+    plt.plot(time, avgsst)
     plt.xlabel('Time')
-    plt.ylabel('Average Sea Surface Temperature (SST)')
-    plt.title('Average Sea Surface Temperature Over Time')
+    plt.ylabel('Sea Surface Temperature (C°)')
+    plt.title('Area-Averaged Sea Surface Temperature')
     plt.legend()
     plt.grid(True)
+
+    print("Execution time:", round(t.time() - starttime, 2), "seconds")
     plt.show()
