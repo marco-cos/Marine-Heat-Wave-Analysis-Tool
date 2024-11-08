@@ -1,4 +1,6 @@
 def MHWDuration(filelocation):
+    from code.FunctionLibrary import ProcessNetCDF
+    from code.FunctionLibrary import MapPlot
     import time as t
     starttime = t.time()
     import netCDF4 as nc
@@ -10,11 +12,8 @@ def MHWDuration(filelocation):
     from threading import Thread
 
     # Load the dataset
-    data = nc.Dataset(filelocation)
-    sst = data.variables['sst'][:, 0, :, :]
-    lon = data.variables['lon'][:]
-    lat = data.variables['lat'][:]
-    data.close()
+    data = ProcessNetCDF(filelocation)
+    sst, lat, lon = data["sst"], data["lat"], data["lon"]
 
     # Detrend SST and calculate the 90th percentile for each cell
     detrended_sst = detrend(sst, axis=0)
@@ -65,31 +64,4 @@ def MHWDuration(filelocation):
     for thread in threads:
         thread.join()
 
-    # Create a meshgrid for plotting
-    lon_grid, lat_grid = np.meshgrid(lon, lat)
-
-    # Plot the MHW frequency on a map
-    fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
-    ax.set_extent([lon.min(), lon.max(), lat.min(), lat.max()], crs=ccrs.PlateCarree())
-    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m', edgecolor='face', facecolor='beige'))
-    ax.add_feature(cfeature.OCEAN)
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS, linestyle=':')
-
-    # Plot the MHW frequency data
-    cmap = plt.get_cmap("plasma")
-    vmin = np.min(MHWmeanduration[np.nonzero(MHWmeanduration)])  # Avoid zero values if they are not meaningful
-    vmax = np.max(MHWmeanduration)
-    mesh = ax.pcolormesh(lon_grid, lat_grid, MHWmeanduration, cmap=cmap, vmin=vmin, vmax=vmax, transform=ccrs.PlateCarree())
-    plt.colorbar(mesh, ax=ax, label='Days')
-    plt.title('Average MHW Duration')
-
-    # Add gridlines and labels
-    gridlines = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), linestyle='--', color='gray')
-    gridlines.top_labels = False
-    gridlines.right_labels = False
-    gridlines.xlabel_style = {'size': 10, 'color': 'black'}
-    gridlines.ylabel_style = {'size': 10, 'color': 'black'}
-
-    print("Execution time:", round(t.time() - starttime, 2), "seconds")
-    plt.show()
+    MapPlot(lon,lat,MHWmeanduration, "Average Marine Heat Wave Duration", "Days")

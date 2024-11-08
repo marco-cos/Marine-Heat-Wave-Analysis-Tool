@@ -1,21 +1,19 @@
 def MHWFrequency(filelocation):
-    import time as t
-    starttime = t.time()
-    import netCDF4 as nc
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import cartopy.crs as ccrs
-    import cartopy.feature as cfeature
-    from scipy.signal import detrend
+    from code.FunctionLibrary import ProcessNetCDF
+    from code.FunctionLibrary import MapPlot
+    
+    from scipy.signal import detrend 
     from threading import Thread
+    import numpy as np
+
+    import time as t
+    starttime = t.time()    
 
     # Load the dataset
-    data = nc.Dataset(filelocation)
-    sst = data.variables['sst'][:, 0, :, :]
-    lon = data.variables['lon'][:]
-    lat = data.variables['lat'][:]
-    data.close()
+    data = ProcessNetCDF(filelocation)
+    sst, lat, lon = data["sst"], data["lat"], data["lon"]
 
+    # Detrend SST and calculate the 90th percentile for each cell
     # Detrend SST and calculate the 90th percentile for each cell
     detrended_sst = detrend(sst, axis=0)
     percentile_90 = np.percentile(detrended_sst, 90, axis=0)
@@ -52,29 +50,4 @@ def MHWFrequency(filelocation):
     for thread in threads:
         thread.join()
 
-    # Create a meshgrid for plotting
-    lon_grid, lat_grid = np.meshgrid(lon, lat)
-
-    # Plot the MHW frequency on a map
-    fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={'projection': ccrs.PlateCarree()})
-    ax.set_extent([lon.min(), lon.max(), lat.min(), lat.max()], crs=ccrs.PlateCarree())
-    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m', edgecolor='face', facecolor='beige'))
-    ax.add_feature(cfeature.OCEAN)
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS, linestyle=':')
-
-    # Plot the MHW frequency data
-    cmap = plt.get_cmap("plasma")
-    mesh = ax.pcolormesh(lon_grid, lat_grid, MHWfrequency, cmap=cmap, transform=ccrs.PlateCarree())
-    plt.colorbar(mesh, ax=ax, label='Number of MHW Events')
-    plt.title('Average Number of MHW Events per Year')
-
-    # Add gridlines and labels
-    gridlines = ax.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), linestyle='--', color='gray')
-    gridlines.top_labels = False
-    gridlines.right_labels = False
-    gridlines.xlabel_style = {'size': 10, 'color': 'black'}
-    gridlines.ylabel_style = {'size': 10, 'color': 'black'}
-
-    print("Execution time:", round(t.time() - starttime, 2), "seconds")
-    plt.show()
+    MapPlot(lon,lat,MHWfrequency, "Average Number of MHW Events per Year", "Number of MHW events")
