@@ -1,9 +1,14 @@
-from code.MHWDuration import MHWDuration
-from code.MHWFrequency import MHWFrequency
-from code.MHWIntensity import MHWIntensity
 from code.SSTAvgGraph import SSTAvgGraph
 from code.SSTDetrendAvgGraph import SSTDetrendAvgGraph
 from code.SSTMeanMap import SSTMeanMap
+from code.SSTClustered import SSTClustered
+from code.FunctionLibrary import MapPlot
+from code.FunctionLibrary import GetMHWFrequencyValues
+from code.FunctionLibrary import GetMHWIntensityValues
+from code.FunctionLibrary import GetMHWDurationValues
+from code.FunctionLibrary import PerformClusterAnalysis
+
+
 import os
 import sys
 
@@ -35,13 +40,60 @@ else:
 
 datasetlocation = (f"datasets/{datasets[selecteddataset]}")
 
+
+#Action-specific functons
+def MHWDurationPlot(filelocation):
+    MHWDurationRet = GetMHWDurationValues(filelocation)
+    MapPlot(MHWDurationRet["lon"],MHWDurationRet["lat"],MHWDurationRet["values"], "Average Marine Heat Wave Duration", "Days")
+
+def MHWFrequencyPlot(filelocation):
+    MHWFrequencyRet = GetMHWFrequencyValues(filelocation)
+    MapPlot(MHWFrequencyRet["lon"],MHWFrequencyRet["lat"],MHWFrequencyRet["values"], "Average Number of MHW Events per Year", "Number of MHW events")
+
+def MHWIntensityPlot(filelocation):
+    MHWIntensityRet = GetMHWIntensityValues(filelocation)
+    MapPlot(MHWIntensityRet["lon"],MHWIntensityRet["lat"],MHWIntensityRet["values"],"Average MHW Intensity", "Amount over 90th Percentile")
+
+def LaunchClusterAnalysis(filelocation):
+    clustervariables = {
+        1:("MHW Duration",GetMHWDurationValues),
+        2:("MHW Frequency",GetMHWFrequencyValues),
+        3:("MHW Intensity",GetMHWIntensityValues)
+    }
+
+    print("Please enter the number associated with the variable you would like to cluster:")
+    
+    for key,value in clustervariables.items():
+        print(f"{key}. {value[0]}")
+    
+    selectedvariable = int(input())
+
+    if selectedvariable not in clustervariables:
+        print("Invalid choice, terminating program")
+        sys.exit()
+    
+    print("How many clusters would you like?")
+    clusters=int(input())
+
+    if clusters < 2 or clusters > 20:
+        print("Invalid choice, terminating program")
+        sys.exit()
+
+    returnedvariable = clustervariables[selectedvariable][1](filelocation)
+    PerformClusterAnalysis(returnedvariable,clusters)
+
+
+    
+
 actions = {
-    1:("MHW Duration", MHWDuration),
-    2:("MHW Frequency", MHWFrequency),
-    3:("MHW Intensity", MHWIntensity),
+    1:("MHW Duration", MHWDurationPlot),
+    2:("MHW Frequency", MHWFrequencyPlot),
+    3:("MHW Intensity", MHWIntensityPlot),
     4:("SST Average Graph", SSTAvgGraph),
     5:("Detrended SST Average Graph", SSTDetrendAvgGraph),
-    6:("SST Mean Map", SSTMeanMap)
+    6:("SST Mean Map", SSTMeanMap),
+    7:("SST Cluster Analysis",SSTClustered),
+    8:("MHW Cluster Analysis",LaunchClusterAnalysis)
 }
 print("Please enter the number associated with your desired action:")
 

@@ -23,22 +23,24 @@ def LinePlot(xaxis, yaxis):
     plt.grid(True)
     plt.show()
 
-def MapPlot(lon, lat, data, title, barlabel):
+def MapPlot(lon, lat, data, title, barlabel, levels=20):
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
 
     #Add in geographical features 
     axes = plt.axes(projection=ccrs.PlateCarree())
-    axes.add_feature(cfeature.LAND)
     axes.add_feature(cfeature.OCEAN)
     axes.add_feature(cfeature.COASTLINE)
     axes.add_feature(cfeature.BORDERS, linestyle=':')
     axes.add_feature(cfeature.LAKES, alpha=0.5)
     axes.add_feature(cfeature.RIVERS)
+    land = cfeature.NaturalEarthFeature('physical', 'land', '50m',edgecolor='face',facecolor='beige')
+    axes.add_feature(land, zorder=1)
+
 
     #Settings for map
-    plt.contourf(lon, lat, data, levels=20, transform=ccrs.PlateCarree(), cmap='plasma')
+    plt.contourf(lon, lat, data, levels, transform=ccrs.PlateCarree(), cmap='plasma')
     plt.title(title)
     plt.colorbar(label=barlabel)
     gridlines = axes.gridlines(draw_labels=True, crs=ccrs.PlateCarree(), linestyle='--', color='gray')
@@ -46,3 +48,225 @@ def MapPlot(lon, lat, data, title, barlabel):
     gridlines.right_labels = False 
     plt.show()
 
+def GetMHWFrequencyValues(filelocation):
+    import sys
+    from scipy.signal import detrend 
+    from threading import Thread
+    import numpy as np
+
+    # Load the dataset
+    data = ProcessNetCDF(filelocation)
+    sst, lat, lon = data["sst"], data["lat"], data["lon"]
+
+    print("Please enter your desired percentile to calculate MHW events:")
+    selectedpercentile = int(input())
+
+    if (selectedpercentile < 1 or selectedpercentile > 99):
+        print("Invalid choice, terminating program")
+        sys.exit()
+
+    # Detrend SST and calculate the 90th percentile for each cell
+    detrended_sst = detrend(sst, axis=0)
+    percentile = np.percentile(detrended_sst, selectedpercentile, axis=0)
+    MHWfrequency = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+
+        # Define a function to calculate MHW frequency for a range of latitude lines
+    def calculate_mhw_for_chunk(latx_start, latx_end):
+        for latx in range(latx_start, latx_end):
+            mhw_counts = np.zeros(detrended_sst.shape[2], dtype=float)
+            for long in range(detrended_sst.shape[2]):
+                mhwdays = 0
+                for time in range(detrended_sst.shape[0]):
+                    if detrended_sst[time, latx, long] > percentile[latx, long]:
+                        mhwdays += 1
+                        if mhwdays == 5:
+                            mhw_counts[long] += (1 / 12)  
+                    else:
+                        mhwdays = 0
+            MHWfrequency[latx, :] = mhw_counts 
+
+    # Split work into chunks and create threads for each chunk
+    num_threads = 4  # Adjust based on system capabilities
+    chunk_size = detrended_sst.shape[1] // num_threads
+    threads = []
+
+    for i in range(num_threads):
+        latx_start = i * chunk_size
+        latx_end = (i + 1) * chunk_size if i < num_threads - 1 else detrended_sst.shape[1]
+        thread = Thread(target=calculate_mhw_for_chunk, args=(latx_start, latx_end))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+
+    return {
+        "values":MHWfrequency,
+        "lon":lon,
+        "lat":lat
+    }
+
+def GetMHWIntensityValues(filelocation):
+    import sys
+    from scipy.signal import detrend 
+    from threading import Thread
+    import numpy as np
+
+   # Load the dataset
+    data = ProcessNetCDF(filelocation)
+    sst, lat, lon = data["sst"], data["lat"], data["lon"]
+
+    print("Please enter your desired percentile to calculate MHW events:")
+    selectedpercentile = int(input())
+
+    if (selectedpercentile < 1 or selectedpercentile > 99):
+        print("Invalid choice, terminating program")
+        sys.exit()
+
+    # Detrend SST and calculate the 90th percentile for each cell
+    detrended_sst = detrend(sst, axis=0)
+    percentile = np.percentile(detrended_sst, selectedpercentile, axis=0)
+    MHWfrequency = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+    MHWduration = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+    MHWmeanintensity = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+
+    # Define a function to calculate MHW frequency for a range of latitude lines
+    def calculate_mhw_for_chunk(latx_start, latx_end):
+        for latx in range(latx_start, latx_end):
+            mhw_counts = np.zeros(detrended_sst.shape[2], dtype=float)
+            total_duration = np.zeros(detrended_sst.shape[2], dtype=float)  # Track total duration of events
+            mean_intensity = np.zeros(detrended_sst.shape[2], dtype=float)
+
+            for long in range(detrended_sst.shape[2]):            
+                mhwdays = 0
+                intensitysum = 0
+                for time in range(detrended_sst.shape[0]):
+                    if detrended_sst[time, latx, long] > percentile[latx, long]:
+                        mhwdays += 1
+                        if mhwdays == 5:
+                            mhw_counts[long] += (1 / 12)  
+                        if mhwdays >= 5:
+                            total_duration[long] += 1
+                            intensitysum+=(detrended_sst[time, latx, long] - percentile[latx, long])
+
+                    else:
+                        if (mhwdays >= 5):
+                            current_count = mhw_counts[long]
+
+                            mean_intensity[long] += (intensitysum / mhwdays - mean_intensity[long]) / current_count
+                        mhwdays = 0
+                        intensitysum=0
+            MHWfrequency[latx, :] = mhw_counts 
+            MHWduration[latx,:] = total_duration
+            MHWmeanintensity[latx,:] = mean_intensity
+
+    # Split work into chunks and create threads for each chunk
+    num_threads = 4  # Adjust based on system capabilities
+    chunk_size = detrended_sst.shape[1] // num_threads
+    threads = []
+
+    for i in range(num_threads):
+        latx_start = i * chunk_size
+        latx_end = (i + 1) * chunk_size if i < num_threads - 1 else detrended_sst.shape[1]
+        thread = Thread(target=calculate_mhw_for_chunk, args=(latx_start, latx_end))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+    
+    return {
+        "values":MHWmeanintensity,
+        "lon":lon,
+        "lat":lat
+    }
+
+def GetMHWDurationValues(filelocation):
+    import sys
+    import numpy as np
+    from scipy.signal import detrend
+    from threading import Thread
+
+    # Load the dataset
+    data = ProcessNetCDF(filelocation)
+    sst, lat, lon = data["sst"], data["lat"], data["lon"]
+
+    print("Please enter your desired percentile to calculate MHW events:")
+    selectedpercentile = int(input())
+
+    if (selectedpercentile < 1 or selectedpercentile > 99):
+        print("Invalid choice, terminating program")
+        sys.exit()
+
+    # Detrend SST and calculate the 90th percentile for each cell
+    detrended_sst = detrend(sst, axis=0)
+    percentile = np.percentile(detrended_sst, selectedpercentile, axis=0)
+    MHWfrequency = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+    MHWduration = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+    MHWmeanduration = np.zeros((detrended_sst.shape[1], detrended_sst.shape[2]), dtype=float)
+
+    # Define a function to calculate MHW frequency for a range of latitude lines
+    def calculate_mhw_for_chunk(latx_start, latx_end):
+        for latx in range(latx_start, latx_end):
+            mhw_counts = np.zeros(detrended_sst.shape[2], dtype=float)
+            total_duration = np.zeros(detrended_sst.shape[2], dtype=float)  # Track total duration of events
+            mean_duration = np.zeros(detrended_sst.shape[2], dtype=float)
+
+            for long in range(detrended_sst.shape[2]):            
+                mhwdays = 0
+                for time in range(detrended_sst.shape[0]):
+                    if detrended_sst[time, latx, long] > percentile[latx, long]:
+                        mhwdays += 1
+                        if mhwdays == 5:
+                            mhw_counts[long] += (1 / 12)  
+                        if mhwdays >= 5:
+                            total_duration[long] += 1
+                    else:
+                        if (mhwdays >= 5):
+                            current_count = mhw_counts[long]
+
+                            mean_duration[long] += (mhwdays - mean_duration[long]) / current_count
+                        mhwdays = 0
+            MHWfrequency[latx, :] = mhw_counts 
+            MHWduration[latx,:] = total_duration
+            MHWmeanduration[latx,:] = mean_duration
+
+    # Split work into chunks and create threads for each chunk
+    num_threads = 4  # Adjust based on system capabilities
+    chunk_size = detrended_sst.shape[1] // num_threads
+    threads = []
+
+    for i in range(num_threads):
+        latx_start = i * chunk_size
+        latx_end = (i + 1) * chunk_size if i < num_threads - 1 else detrended_sst.shape[1]
+        thread = Thread(target=calculate_mhw_for_chunk, args=(latx_start, latx_end))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+
+    return {
+        "values":MHWmeanduration,
+        "lon":lon,
+        "lat":lat
+    }
+
+
+def PerformClusterAnalysis(variable,clusters):
+    from sklearn.cluster import KMeans
+    # Flatten the MHW frequency data for clustering
+    flat_data = variable["values"].reshape(-1, 1)  # Each point is a single feature: its MHW frequency
+
+    # Perform K-Means clustering
+    kmeans = KMeans(n_clusters=clusters, random_state=42)
+    cluster_labels = kmeans.fit_predict(flat_data)
+
+    # Reshape the cluster labels to match the spatial dimensions
+    cluster_labels_2d = cluster_labels.reshape(variable["values"].shape)
+
+    # Plot the clustering results
+    MapPlot(variable["lon"], variable["lat"], cluster_labels_2d, f"K-Means Clustering with {clusters} Clusters", "Cluster ID",clusters)

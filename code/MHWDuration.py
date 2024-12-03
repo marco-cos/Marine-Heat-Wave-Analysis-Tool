@@ -5,9 +5,9 @@ def MHWDuration(filelocation):
     starttime = t.time()
     import netCDF4 as nc
     import matplotlib.pyplot as plt
-    import numpy as np
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
+    import numpy as np
     from scipy.signal import detrend
     from threading import Thread
 
