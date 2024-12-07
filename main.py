@@ -1,13 +1,12 @@
 from code.SSTAvgGraph import SSTAvgGraph
 from code.SSTDetrendAvgGraph import SSTDetrendAvgGraph
 from code.SSTMeanMap import SSTMeanMap
-from code.SSTClustered import SSTClustered
 from code.FunctionLibrary import MapPlot
 from code.FunctionLibrary import GetMHWFrequencyValues
 from code.FunctionLibrary import GetMHWIntensityValues
 from code.FunctionLibrary import GetMHWDurationValues
 from code.FunctionLibrary import PerformClusterAnalysis
-
+from code.FunctionLibrary import SSTClusterAnalysis
 
 import os
 import sys
@@ -75,14 +74,22 @@ def LaunchClusterAnalysis(filelocation):
     print("How many clusters would you like?")
     clusters=int(input())
 
-    if clusters < 2 or clusters > 20:
+    if clusters < 1 or clusters > 50:
         print("Invalid choice, terminating program")
         sys.exit()
 
     returnedvariable = clustervariables[selectedvariable][1](filelocation)
     PerformClusterAnalysis(returnedvariable,clusters)
 
+def LaunchSSTClusterAnalysis(filelocation):
+    print("How many clusters would you like?")
+    clusters=int(input())
 
+    if clusters < 1 or clusters > 50:
+        print("Invalid choice, terminating program")
+        sys.exit()
+    SSTClusterAnalysis(filelocation,clusters)
+    
     
 
 actions = {
@@ -92,7 +99,7 @@ actions = {
     4:("SST Average Graph", SSTAvgGraph),
     5:("Detrended SST Average Graph", SSTDetrendAvgGraph),
     6:("SST Mean Map", SSTMeanMap),
-    7:("SST Cluster Analysis",SSTClustered),
+    7:("Detrended SST Cluster Analysis",LaunchSSTClusterAnalysis),
     8:("MHW Cluster Analysis",LaunchClusterAnalysis)
 }
 print("Please enter the number associated with your desired action:")

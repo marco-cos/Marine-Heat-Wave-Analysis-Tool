@@ -6,6 +6,8 @@ This command-line tool allows users to analyze and visualize marine heat wave (M
 Makes a line plot of the Area-Averaged sea surface temperature in celcius over time.
 ### Detrended SST Average Graph
 Makes a line plot of the Area-Averaged sea surface temperature in celcius over time that is detrended to account for global sea surface temperature (SST) rise.
+### Cluster Analysis for Detrended SST Average Graph
+Like detrended SST average graph function, but with K-means cluster analysis performed. 
 ### SST Mean Map
 Returns a map of the time-averaged sea surface temperature in celcius by location.
 ### Marine Heat Wave Duration
